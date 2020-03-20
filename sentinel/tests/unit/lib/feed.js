@@ -33,7 +33,7 @@ describe('feed', () => {
   describe('initialization', () => {
 
     it('handles missing meta data doc', () => {
-      sinon.stub(metadata, 'getProcessedSeq').rejects({ status: 404 });
+      sinon.stub(metadata, 'getTransitionSeq').rejects({ status: 404 });
       return feed.listen().then(() => {
         chai.expect(db.medic.changes.callCount).to.equal(1);
         chai.expect(db.medic.changes.args[0][0]).to.deep.equal({ live: true, since: undefined });
@@ -42,7 +42,7 @@ describe('feed', () => {
     });
 
     it('uses existing meta data doc', () => {
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       return feed.listen().then(() => {
         chai.expect(db.medic.changes.callCount).to.equal(1);
         chai.expect(db.medic.changes.args[0][0]).to.deep.equal({ live: true, since: '123' });
@@ -52,7 +52,7 @@ describe('feed', () => {
     });
 
     it('does not register listener twice', () => {
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       return feed.listen()
         .then(() => feed.listen())
         .then(() => {
@@ -63,7 +63,7 @@ describe('feed', () => {
     it('restarts listener after db error', () => {
       const clock = sinon.useFakeTimers();
       const change = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq')
+      sinon.stub(metadata, 'getTransitionSeq')
         .onCall(0).resolves('123')
         .onCall(1).resolves('456');
 
@@ -102,7 +102,7 @@ describe('feed', () => {
 
     it('invokes listener with changes', done => {
       const change = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       sinon.stub(tombstoneUtils, 'isTombstoneId').returns(false);
       sinon.stub(feed._changeQueue, 'length').returns(0);
       const push = sinon.stub(feed._changeQueue, 'push');
@@ -123,7 +123,7 @@ describe('feed', () => {
     it('ignores ddocs', () => {
       const ddoc = { id: '_design/medic' };
       const edoc = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       sinon.stub(tombstoneUtils, 'isTombstoneId').returns(false);
       sinon.stub(feed._changeQueue, 'length').returns(0);
       const push = sinon.stub(feed._changeQueue, 'push');
@@ -143,7 +143,7 @@ describe('feed', () => {
     it('ignores info docs', () => {
       const infodoc = { id: 'some-uuid-info' };
       const doc = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       sinon.stub(tombstoneUtils, 'isTombstoneId').returns(false);
 
       const push = sinon.stub(feed._changeQueue, 'push');
@@ -163,7 +163,7 @@ describe('feed', () => {
     it('ignores tombstones', () => {
       const tombstone = { id: 'tombstone' };
       const doc = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       sinon.stub(tombstoneUtils, 'isTombstoneId')
         .withArgs(tombstone.id).returns(true)
         .withArgs(doc.id).returns(false);
@@ -185,7 +185,7 @@ describe('feed', () => {
 
     it('stops listening when the number of changes in the queue is above the limit', () => {
       const change = { id: 'some-uuid' };
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
       sinon.stub(tombstoneUtils, 'isTombstoneId').returns(false);
 
       sinon.stub(feed._changeQueue, 'length').returns(101);
@@ -209,7 +209,7 @@ describe('feed', () => {
   describe('cancel', () => {
 
     it('cancels the couch request', () => {
-      sinon.stub(metadata, 'getProcessedSeq').resolves('123');
+      sinon.stub(metadata, 'getTransitionSeq').resolves('123');
 
       const push = sinon.stub(feed._changeQueue, 'push');
       const change = { id: 'some-uuid' };
@@ -307,7 +307,7 @@ describe('feed', () => {
   describe('changeQueue', () => {
     it('handles an empty change', done => {
       sinon.stub(feed._changeQueue, 'length').returns(0);
-      sinon.stub(metadata, 'update').resolves();
+      sinon.stub(metadata, 'setTransitionSeq').resolves();
       sinon.stub(feed._transitionsLib, 'processChange').callsArgWith(1);
 
       feed._enqueue();
@@ -316,7 +316,7 @@ describe('feed', () => {
         return Promise.resolve().then(() => {
           assert.equal(feed._transitionsLib.processChange.callCount, 0);
           return Promise.resolve().then(() => {
-            assert.equal(metadata.update.callCount, 0);
+            assert.equal(metadata.setTransitionSeq.callCount, 0);
             done();
           });
         });
@@ -325,7 +325,7 @@ describe('feed', () => {
 
     it('processes deleted changes through TombstoneUtils to create tombstones', done => {
       sinon.stub(tombstoneUtils, 'processChange').resolves();
-      sinon.stub(metadata, 'update').resolves();
+      sinon.stub(metadata, 'setTransitionSeq').resolves();
       sinon.stub(infodoc, 'delete').resolves();
       sinon.stub(db, 'allDbs').resolves([]);
 
@@ -340,8 +340,8 @@ describe('feed', () => {
             deleted: true,
           });
           return Promise.resolve().then(() => {
-            assert.equal(metadata.update.callCount, 1);
-            assert.equal(metadata.update.args[0][0], 55);
+            assert.equal(metadata.setTransitionSeq.callCount, 1);
+            assert.equal(metadata.setTransitionSeq.args[0][0], 55);
             done();
           });
         });
@@ -350,7 +350,7 @@ describe('feed', () => {
 
     it('does not advance metadata document if creating tombstone fails', done => {
       sinon.stub(tombstoneUtils, 'processChange').rejects();
-      sinon.stub(metadata, 'update').resolves();
+      sinon.stub(metadata, 'setTransitionSeq').resolves();
       sinon.stub(infodoc, 'delete').resolves();
       sinon.stub(db, 'allDbs').resolves([]);
 
@@ -365,7 +365,7 @@ describe('feed', () => {
             deleted: true,
           });
           return Promise.resolve().then(() => {
-            assert.equal(metadata.update.callCount, 0);
+            assert.equal(metadata.setTransitionSeq.callCount, 0);
             done();
           });
         });
@@ -373,7 +373,7 @@ describe('feed', () => {
     });
 
     it('runs transitions lib over changes', done => {
-      sinon.stub(metadata, 'update').resolves();
+      sinon.stub(metadata, 'setTransitionSeq').resolves();
       sinon.stub(feed._transitionsLib, 'processChange').callsArgWith(1);
 
       feed._enqueue({ id: 'somechange', seq: 55 });
@@ -383,8 +383,8 @@ describe('feed', () => {
           assert.equal(feed._transitionsLib.processChange.callCount, 1);
           assert.deepEqual(feed._transitionsLib.processChange.args[0][0], { id: 'somechange', seq: 55 });
           return Promise.resolve().then(() => {
-            assert.equal(metadata.update.callCount, 1);
-            assert.equal(metadata.update.args[0][0], 55);
+            assert.equal(metadata.setTransitionSeq.callCount, 1);
+            assert.equal(metadata.setTransitionSeq.args[0][0], 55);
             done();
           });
         });
