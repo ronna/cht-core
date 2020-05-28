@@ -4,7 +4,7 @@ const transitionsLib = config.getTransitionsLib();
 const date = transitionsLib.date;
 const logger = require('../lib/logger');
 
-const tasks = {
+const jobs = {
   dueTasks: {
     execute: cb => {
       if (module.exports._sendable(config, moment(date.getDate()))) {
@@ -20,7 +20,7 @@ const tasks = {
   purging: require('./purging'),
   background: require('./background-cleanup')
 };
-const ongoingTasks = new Set();
+const ongoingJobs = new Set();
 
 const getTime = (h, m) => moment(0).hours(h).minutes(m);
 
@@ -41,20 +41,20 @@ const sendable = (config, now) => {
 };
 
 const init = () => {
-  Object.keys(tasks).forEach(taskName => {
-    if (ongoingTasks.has(taskName)) {
-      logger.debug(`Skipping Task ${taskName} as it's still running`);
+  Object.keys(jobs).forEach(jobName => {
+    if (ongoingJobs.has(jobName)) {
+      logger.info(`Skipping Job ${jobName} as it's still running`);
     } else {
-      ongoingTasks.add(taskName);
+      ongoingJobs.add(jobName);
 
-      logger.info(`Task ${taskName} started`);
-      tasks[taskName].execute(function(err) {
-        ongoingTasks.delete(taskName);
+      logger.info(`Job ${jobName} started`);
+      jobs[jobName].execute(function(err) {
+        ongoingJobs.delete(jobName);
 
         if (err) {
-          logger.error(`Task ${taskName} completed with error: ${err}`);
+          logger.error(`Job ${jobName} completed with error: ${err}`);
         } else {
-          logger.info(`Task ${taskName} completed`);
+          logger.info(`Job ${jobName} completed`);
         }
       });
     }
@@ -63,7 +63,7 @@ const init = () => {
 
 module.exports = {
   init: () => {
-    logger.info('Scheduler initiated');
+    logger.info('Job Scheduler initiated');
     init();
     setInterval(init, 1000 * 60 * 5);
   },
