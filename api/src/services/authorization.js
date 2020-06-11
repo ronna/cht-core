@@ -104,7 +104,7 @@ const allowedDoc = (docId, authorizationContext, { replicationKeys, contactsByDe
     if (!subjectId && allowedSubmitter) {
       return true;
     }
-    const allowedSubject = subjectId && authorizationContext.subjectIds.includes(subjectId)
+    const allowedSubject = subjectId && authorizationContext.subjectIds.includes(subjectId);
     const sensitive = isSensitive(authorizationContext.userCtx, subjectId, submitterId, private, allowedSubmitter);
     return allowedSubject && !sensitive;
   });
