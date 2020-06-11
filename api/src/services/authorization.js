@@ -80,7 +80,7 @@ const updateContext = (allowed, authorizationContext, { contactsByDepth }) => {
 // @param   {Array}    viewResults.contactsByDepth - results of `medic/contacts_by_depth` view against doc
 // @returns {Boolean}
 const allowedDoc = (docId, authorizationContext, { replicationKeys, contactsByDepth }) => {
-  if ([MEDIC_CLIENT_DDOC, getUserSettingsId(authorizationContext.userCtx.name)].indexOf(docId) !== -1) {
+  if ([MEDIC_CLIENT_DDOC, getUserSettingsId(authorizationContext.userCtx.name)].includes(docId)) {
     return true;
   }
 
@@ -99,13 +99,14 @@ const allowedDoc = (docId, authorizationContext, { replicationKeys, contactsByDe
 
   //it's a report, task or target
   return replicationKeys.some(replicationKey => {
-    const [ subjectId, { submitter: submitterId } ] = replicationKey;
-    const allowedSubmitter = submitterId && authorizationContext.subjectIds.indexOf(submitterId) !== -1;
+    const [ subjectId, { submitter: submitterId, private } ] = replicationKey;
+    const allowedSubmitter = submitterId && authorizationContext.subjectIds.includes(submitterId);
     if (!subjectId && allowedSubmitter) {
       return true;
     }
-    const allowedSubject = subjectId && authorizationContext.subjectIds.indexOf(subjectId) !== -1;
-    return allowedSubject && !isSensitive(authorizationContext.userCtx, subjectId, submitterId, allowedSubmitter);
+    const allowedSubject = subjectId && authorizationContext.subjectIds.includes(subjectId)
+    const sensitive = isSensitive(authorizationContext.userCtx, subjectId, submitterId, private, allowedSubmitter);
+    return allowedSubject && !sensitive;
   });
 };
 
@@ -332,8 +333,8 @@ const getScopedAuthorizationContext = (userCtx, scopeDocsCtx = []) => {
 
 
 // Method to ensure users don't see reports submitted by their boss about the user
-const isSensitive = function(userCtx, subject, submitter, allowedSubmitter) {
-  if (!subject || !submitter) {
+const isSensitive = function(userCtx, subject, submitter, isPrivate, allowedSubmitter) {
+  if (!subject || !submitter || !isPrivate) {
     return false;
   }
 
@@ -350,7 +351,8 @@ const getAllowedDocIds = (feed, { includeTombstones = true } = {}) => {
     const tombstoneIds = [];
 
     results.rows.forEach(row => {
-      if (isSensitive(feed.userCtx, row.key, row.value.submitter, feed.subjectIds.includes(row.value.submitter))) {
+      const { key: subject, value:{ submitter, private } } = row;
+      if (isSensitive(feed.userCtx, subject, submitter, private, feed.subjectIds.includes(row.value.submitter))) {
         return;
       }
 
