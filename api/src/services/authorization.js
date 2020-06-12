@@ -99,7 +99,7 @@ const allowedDoc = (docId, authorizationContext, { replicationKeys, contactsByDe
 
   //it's a report, task or target
   return replicationKeys.some(replicationKey => {
-    const [ subjectId, { submitter: submitterId, private } ] = replicationKey;
+    const [ subjectId, { submitter: submitterId, private } = {} ] = replicationKey;
     const allowedSubmitter = submitterId && authorizationContext.subjectIds.includes(submitterId);
     if (!subjectId && allowedSubmitter) {
       return true;
@@ -351,8 +351,8 @@ const getAllowedDocIds = (feed, { includeTombstones = true } = {}) => {
     const tombstoneIds = [];
 
     results.rows.forEach(row => {
-      const { key: subject, value:{ submitter, private } } = row;
-      if (isSensitive(feed.userCtx, subject, submitter, private, feed.subjectIds.includes(row.value.submitter))) {
+      const { key: subject, value: { submitter, private } = {} } = row;
+      if (isSensitive(feed.userCtx, subject, submitter, private, feed.subjectIds.includes(submitter))) {
         return;
       }
 
